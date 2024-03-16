@@ -12,42 +12,42 @@ import org.apache.kafka.streams.Topology;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 @Slf4j
 public abstract class StreamingApp {
 
-    private final Properties config;
-    private final String outputTopic;
-    private final String inputTopic;
-    private final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
+    final Properties config;
+    final String outputTopic;
+    final List<String> inputTopics;
+    final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
 
-    StreamingApp(Properties config, String inputTopic, String outputTopic) {
+    StreamingApp(Properties config, List<String> inputTopics, String outputTopic) {
         this.config = config;
         this.outputTopic = outputTopic;
-        this.inputTopic = inputTopic;
+        this.inputTopics = inputTopics;
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> isShuttingDown.set(true)));
     }
 
     void run() {
         createTopics();
-        startProducingThread(config, inputTopic, isShuttingDown);
+        startProducingThread(config, inputTopics, isShuttingDown);
         startConsumingThread();
         startStreaming(topology());
     }
 
-    abstract void startProducingThread(Properties config, String topic, AtomicBoolean isShuttingDown);
+    abstract void startProducingThread(Properties config, List<String> topics, AtomicBoolean isShuttingDown);
 
     abstract Topology topology();
 
     @SneakyThrows
     void createTopics() {
-        var topicNames = List.of(inputTopic, outputTopic);
+        var topicNames = Stream.concat(inputTopics.stream(), Stream.of(outputTopic)).toList();
         try (AdminClient client = AdminClient.create(config)) {
             var existingTopics = client.listTopics().names().get();
 
@@ -57,7 +57,7 @@ public abstract class StreamingApp {
 
             toBeCreatedTopics.forEach(topic -> createTopic(topic, client));
 
-            log.info("Topics {} available.", Arrays.asList(topicNames));
+            log.info("Topics {} available.", topicNames);
         }
     }
 

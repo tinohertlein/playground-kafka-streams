@@ -16,6 +16,7 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 
+import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,11 +27,13 @@ import static java.util.Arrays.asList;
 @Slf4j
 public class ColourCounter extends StreamingApp {
 
-    static final String TOPIC_INPUT = "colours-input";
+    static final String TOPIC_INPUT = "colours-count-input";
     static final String TOPIC_OUTPUT = "colour-count-output";
 
+    private final Random random = new Random();
+
     ColourCounter() {
-        super(config(), TOPIC_INPUT, TOPIC_OUTPUT);
+        super(config(), List.of(TOPIC_INPUT), TOPIC_OUTPUT);
     }
 
     public static void main(String[] args) {
@@ -57,17 +60,16 @@ public class ColourCounter extends StreamingApp {
     }
 
     @Override
-    void startProducingThread(Properties config, String topic, AtomicBoolean isShuttingDown) {
+    void startProducingThread(Properties config, List<String> topics, AtomicBoolean isShuttingDown) {
         Thread.startVirtualThread(
                 () -> {
                     var colours = loadRainbowColours();
-                    var random = new Random();
 
                     try (var producer = new KafkaProducer<>(config)) {
-                        log.info("Started producing to {}.", asList(topic));
+                        log.info("Started producing to {}.", topics);
                         while (!isShuttingDown.get()) {
                             var aColour = colours.get(random.nextInt(colours.size()));
-                            producer.send(new ProducerRecord<>(topic, aColour));
+                            producer.send(new ProducerRecord<>(topics.getFirst(), aColour));
                             producer.flush();
                             sleep();
                         }

@@ -1,11 +1,10 @@
-spider-man
-iron man
-black panther
-deadpool
-captain america
-jessica jones
-ant-man
-captain marvel
-wolverine
-black widow
-daredevil
+Spider-Man:Peter Parker
+Iron Man:Tony Stark
+Black Panther:T'Challa
+Deadpool:Wade Winston Wilson
+Captain America:Steven G. Rogers
+Ant-Man:Scott Lang
+Captain Marvel:Carol Danvers
+Wolverine:James Howlett
+Black Widow:Natasha Alianovna Romanoff
+Daredevil:Matt Murdock

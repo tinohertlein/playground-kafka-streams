@@ -18,6 +18,7 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Named;
 import org.apache.kafka.streams.kstream.Produced;
 
+import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,11 +29,13 @@ import static java.util.Arrays.asList;
 @Slf4j
 public class FavouriteColourCounter extends StreamingApp {
 
-    static final String TOPIC_INPUT = "favourite-colours-input";
+    static final String TOPIC_INPUT = "favourite-colours-count-input";
     static final String TOPIC_OUTPUT = "favourite-colour-count-output";
 
+    private final Random random = new Random();
+
     FavouriteColourCounter() {
-        super(config(), TOPIC_INPUT, TOPIC_OUTPUT);
+        super(config(), List.of(TOPIC_INPUT), TOPIC_OUTPUT);
     }
 
     @SneakyThrows
@@ -61,19 +64,19 @@ public class FavouriteColourCounter extends StreamingApp {
 
     @SneakyThrows
     @Override
-    void startProducingThread(Properties config, String topic, AtomicBoolean isShuttingDown) {
+    void startProducingThread(Properties config, List<String> topics, AtomicBoolean isShuttingDown) {
+
         Thread.startVirtualThread(
                 () -> {
                     var colours = loadRainbowColours();
-                    var users = loadUsers();
-                    var random = new Random();
+                    var users = loadUsers().stream().map(user -> user.split(":")[0]).toList();
 
                     try (var producer = new KafkaProducer<>(config)) {
-                        log.info("Started producing to {}.", asList(topic));
+                        log.info("Started producing to {}.", topics);
                         while (!isShuttingDown.get()) {
                             var aColour = colours.get(random.nextInt(colours.size()));
                             var aUser = users.get(random.nextInt(users.size()));
-                            producer.send(new ProducerRecord<>(topic, String.format("%s:%s", aUser, aColour)));
+                            producer.send(new ProducerRecord<>(topics.getFirst(), String.format("%s:%s", aUser, aColour)));
                             producer.flush();
                             sleep();
                         }
@@ -88,7 +91,7 @@ public class FavouriteColourCounter extends StreamingApp {
         builder.<String, String>stream(TOPIC_INPUT)
                 .filter((key, value) -> value.contains(":"))
                 .selectKey((key, value) -> value.split(":")[0], Named.as("user-as-key"))
-                .mapValues((value) -> value.split(":")[1], Named.as("colour-as-value"))
+                .mapValues(value -> value.split(":")[1], Named.as("colour-as-value"))
                 .toTable()
                 .groupBy((user, colour) -> new KeyValue<>(colour, colour))
                 .count(Materialized.as("count"))
